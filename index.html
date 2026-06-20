@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>이미지 비율 크롭 도구</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f5f7;
+      color: #222;
+    }
+    header {
+      background: #222;
+      color: white;
+      padding: 28px 20px;
+      text-align: center;
+    }
+    header h1 { margin: 0 0 8px; font-size: 30px; }
+    header p { margin: 0; color: #ddd; }
+    main {
+      max-width: 1050px;
+      margin: 30px auto;
+      padding: 0 20px 50px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+    h2 { margin: 0 0 16px; font-size: 22px; }
+    .upload-box {
+      border: 2px dashed #aaa;
+      border-radius: 14px;
+      padding: 28px;
+      text-align: center;
+      background: #fafafa;
+    }
+    input[type="file"] {
+      margin-top: 14px;
+      padding: 10px;
+      width: 100%;
+      max-width: 430px;
+    }
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 20px;
+      align-items: start;
+    }
+    .image-wrap {
+      min-height: 420px;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      background: #fafafa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 12px;
+    }
+    #image {
+      display: block;
+      max-width: 100%;
+      max-height: 620px;
+    }
+    .panel {
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      padding: 16px;
+      background: #fafafa;
+    }
+    .panel h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+    .ratio-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 11px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      background: #2f6fed;
+      color: white;
+    }
+    button.secondary { background: #555; }
+    button.light {
+      background: #eef2f7;
+      color: #222;
+    }
+    button.active {
+      background: #222;
+      color: white;
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .full-btn {
+      width: 100%;
+      margin-top: 8px;
+    }
+    .status {
+      margin-top: 14px;
+      min-height: 24px;
+      color: #444;
+      line-height: 1.5;
+    }
+    .empty {
+      color: #777;
+      text-align: center;
+      line-height: 1.6;
+    }
+    @media (max-width: 850px) {
+      .workspace { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>이미지 비율 크롭 도구</h1>
+    <p>JPG, PNG 이미지를 원하는 가로세로 비율로 자른 뒤 새 이미지로 저장합니다.</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>1. 이미지 업로드</h2>
+      <div class="upload-box">
+        <strong>JPG 또는 PNG 파일을 선택하세요.</strong><br />
+        <input id="imageInput" type="file" accept="image/jpeg, image/png" />
+        <div id="status" class="status">이미지를 업로드하면 크롭 영역을 조절할 수 있습니다.</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. 비율 선택 및 크롭</h2>
+      <div class="workspace">
+        <div class="image-wrap">
+          <div id="emptyText" class="empty">아직 업로드된 이미지가 없습니다.<br />이미지를 선택하면 이곳에 표시됩니다.</div>
+          <img id="image" alt="업로드 이미지" />
+        </div>
+
+        <aside class="panel">
+          <h3>가로세로 비율</h3>
+          <div class="ratio-grid">
+            <button class="light ratio-btn active" data-ratio="free">자유</button>
+            <button class="light ratio-btn" data-ratio="1">1:1</button>
+            <button class="light ratio-btn" data-ratio="1.3333333333">4:3</button>
+            <button class="light ratio-btn" data-ratio="1.7777777778">16:9</button>
+            <button class="light ratio-btn" data-ratio="0.75">3:4</button>
+            <button class="light ratio-btn" data-ratio="0.5625">9:16</button>
+          </div>
+
+          <button id="resetBtn" class="secondary full-btn" disabled>크롭 영역 초기화</button>
+          <button id="downloadBtn" class="full-btn" disabled>크롭 이미지 다운로드</button>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const image = document.getElementById('image');
+    const emptyText = document.getElementById('emptyText');
+    const statusBox = document.getElementById('status');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const ratioButtons = document.querySelectorAll('.ratio-btn');
+
+    let cropper = null;
+    let originalFileName = 'cropped-image';
+
+    function setStatus(message) {
+      statusBox.textContent = message;
+    }
+
+    function setEnabled(enabled) {
+      downloadBtn.disabled = !enabled;
+      resetBtn.disabled = !enabled;
+    }
+
+    function getDownloadName() {
+      const baseName = originalFileName.replace(/\.[^/.]+$/, '');
+      return `${baseName}-cropped.png`;
+    }
+
+    imageInput.addEventListener('change', (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      if (!file.type.match(/^image\/(jpeg|png)$/)) {
+        setStatus('JPG 또는 PNG 파일만 업로드할 수 있습니다.');
+        return;
+      }
+
+      originalFileName = file.name;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        image.src = reader.result;
+        image.style.display = 'block';
+        emptyText.style.display = 'none';
+
+        if (cropper) cropper.destroy();
+
+        cropper = new Cropper(image, {
+          viewMode: 1,
+          dragMode: 'move',
+          autoCropArea: 0.8,
+          responsive: true,
+          background: false,
+          aspectRatio: NaN
+        });
+
+        ratioButtons.forEach(btn => btn.classList.remove('active'));
+        document.querySelector('[data-ratio="free"]').classList.add('active');
+        setEnabled(true);
+        setStatus('이미지를 불러왔습니다. 비율을 선택하고 크롭 영역을 조절하세요.');
+      };
+      reader.readAsDataURL(file);
+    });
+
+    ratioButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        if (!cropper) return;
+
+        ratioButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+
+        const ratio = button.dataset.ratio;
+        cropper.setAspectRatio(ratio === 'free' ? NaN : Number(ratio));
+        setStatus(`${button.textContent} 비율로 설정했습니다.`);
+      });
+    });
+
+    resetBtn.addEventListener('click', () => {
+      if (!cropper) return;
+      cropper.reset();
+      setStatus('크롭 영역을 초기화했습니다.');
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      if (!cropper) return;
+
+      const canvas = cropper.getCroppedCanvas({
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high'
+      });
+
+      if (!canvas) {
+        setStatus('크롭 이미지를 만들 수 없습니다.');
+        return;
+      }
+
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          setStatus('이미지 저장 중 오류가 발생했습니다.');
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = getDownloadName();
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setStatus('크롭 이미지 다운로드가 완료되었습니다.');
+      }, 'image/png');
+    });
+
+    image.style.display = 'none';
+    setEnabled(false);
+  </script>
+</body>
+</html>
